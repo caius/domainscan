@@ -2,24 +2,52 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
 
-func resolveAndOutput(host string) {
-	_, err := net.LookupHost(host)
-
+func domainscan(pattern string, wordfile string, server string) error {
+	// Read out words file into array of words
+	file, err := os.Open(wordfile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: Not found\n", host)
-		return
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: time.Millisecond * time.Duration(1000), // 1s
+			}
+			return d.DialContext(ctx, "udp", fmt.Sprintf("%s:53", server))
+		},
 	}
 
-	fmt.Printf("%s\n", host)
+	for scanner.Scan() {
+		word := scanner.Text()
+		host := strings.Replace(pattern, "%", word, 1)
+
+		addresses, err := resolver.LookupHost(context.Background(), host)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: Not found\n", host)
+		} else {
+			fmt.Printf("%s\n", host)
+		}
+	}
+
+	return nil
 }
 
 func main() {
@@ -39,27 +67,16 @@ func main() {
 				Usage:    "Pattern to inject words into",
 				Required: true,
 			},
+			&cli.StringFlag{
+				Name:    "server",
+				Aliases: []string{"s"},
+				Usage:   "DNS Server to query",
+				Value:   "8.8.4.4",
+			},
 		},
 		Action: func(c *cli.Context) error {
-			pattern := c.String("pattern")
-
-			// Read out words file into array of words
-			file, err := os.Open(c.String("words"))
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-
-			scanner := bufio.NewScanner(file)
-			scanner.Split(bufio.ScanLines)
-
-			for scanner.Scan() {
-				word := scanner.Text()
-				candidate := strings.Replace(pattern, "%", word, 1)
-				resolveAndOutput(candidate)
-			}
-
-			return nil
+			err := domainscan(c.String("pattern"), c.String("words"), c.String("server"))
+			return err
 		},
 	}
 
