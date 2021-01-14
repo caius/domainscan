@@ -43,7 +43,9 @@ func domainscan(pattern string, wordfile string, server string) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: Not found\n", host)
 		} else {
-			fmt.Printf("%s\n", host)
+			for _, address := range addresses {
+				fmt.Printf("%s %s\n", host, address)
+			}
 		}
 	}
 
