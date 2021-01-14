@@ -14,7 +14,7 @@ go get github.com/caius/domainscan/cli
 $ domainscan --help
 
   --help, -h                You\'re looking at it
-  --words-file, -w FILE     File containing replacements to iterate. One per line.
+  --words, -w FILE     File containing replacements to iterate. One per line.
   --pattern, -p PATTERN     Pattern to insert words into. % gets replaced.
   --resolver, -r RESOLVER   Resolver to make DNS requests to
 ```
